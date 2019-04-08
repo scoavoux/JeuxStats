@@ -1,0 +1,158 @@
+---
+title: "Des jeux et des stats"
+author: "Samuel Coavoux"
+date: "8 avril 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE, message = FALSE, error = FALSE,
+                      fig.width = 9,
+                      fig.height = 9)
+```
+
+```{r packages}
+library(tidyverse)
+library(GGally)
+library(FactoMineR)
+library(factoextra)
+theme_set(theme_bw())
+```
+
+
+```{r data}
+d <- read_csv("https://raw.githubusercontent.com/mtriclot/CailloisBox/master/A15P16P17P19.ALL.RECOD.EXCLU.csv")
+```
+
+
+```{r recodage}
+# Summarize: passer des codes aux jeux
+# (moyenne de chaque indicateur)
+ds <- group_by(d, Jeux) %>% 
+  summarise_at(vars(Mimicry:Paidia), mean) %>% 
+  left_join(group_by(d, Jeux) %>% 
+              summarise(n_code = n(),
+                        JeuVideo = first(JeuVideo)))
+
+# factor JeuVideo
+ds <- mutate(ds, JeuVideo = factor(JeuVideo, levels = c(T, F), labels = c("Jeu vidéo", "Autre jeu")))
+
+```
+
+# Processus de codage
+
+```{r ncode_hist, fig.cap="Distribution du nombre de code par jeu"}
+ggplot(ds, aes(n_code)) +
+  geom_histogram()
+
+```
+
+# Examen des liens entre couples de variables
+
+```{r indic_hist, fig.cap="Distribution des 6 indicateurs de Caillois"}
+g <- select(ds, -n_code) %>% 
+  gather(key, value, -Jeux, -JeuVideo) %>% 
+  ggplot(aes(value)) +
+    geom_histogram(binwidth = 1)
+
+g + facet_wrap(~key)
+
+```
+
+```{r indicXJV_hist, fig.cap="Distribution des indicateurs par nature de jeu"}
+g + facet_grid(key~JeuVideo)
+```
+
+```{r IllMim_scatter, fig.cap="Ilinx vs Mimicry"}
+
+g <- ggplot(ds, aes(Ilinx, Mimicry, shape = JeuVideo, 
+               label = Jeux)) +
+  geom_point(size = 5) +
+
+  coord_fixed()
+
+g
+```
+
+
+```{r IllMimXJV_scatter, fig.cap="Ilinx vs Mimicry par nature de jeu"}
+g + facet_wrap(~JeuVideo)
+
+```
+
+```{r LudPai_scatter, fig.cap="Ludus vs. paidia"}
+g <- ggplot(ds, aes(Ludus, Paidia, shape = JeuVideo, 
+                    label = Jeux)) +
+  geom_point(size = 5) +
+
+  coord_fixed()
+
+g
+```
+
+```{r LudPaixJV_scatter, fig.cap="Ludus vs. Paidia par nature de jeu"}
+g + facet_wrap(~JeuVideo)
+
+```
+
+```{r AgAl_hist, fig.cap="Agon vs. Alea"}
+g <- ggplot(ds, aes(Agon, Alea, shape = JeuVideo, 
+                    label = Jeux)) +
+  geom_point(size = 5) +
+
+  coord_fixed()
+
+g
+```
+
+```{r AgAlXJV_hist, fig.cap="Agon vs. Alea par nature de jeu"}
+g + facet_wrap(~JeuVideo)
+
+```
+
+```{r corr_matrix, fig.cap="Matrice des corrélations entre les 6 indicateurs"}
+ggcorr(select(ds, Mimicry:Paidia), label = TRUE)
+  
+```
+
+```{r corr_matrix_JV, fig.cap="Matrice des corrélations entre les 6 indicateurs -- Jeux vidéo uniquement"}
+ggcorr(filter(ds, JeuVideo == "Jeu vidéo") %>% select(Mimicry:Paidia), label = TRUE)
+```
+
+```{r AgAl_hist_autresJeux, fig.cap="Matrice des corrélations entre les 6 indicateurs -- Autres jeux uniquement"}
+ggcorr(filter(ds, JeuVideo == "Autre jeu") %>% select(Mimicry:Paidia), label = TRUE)
+```
+
+# PCA
+
+```{r PCA_init}
+d_pca <- as.data.frame(ds)
+rownames(d_pca) <- d_pca$Jeux
+d_pca <- select(d_pca, Mimicry:Paidia)
+res_pca <- PCA(d_pca, graph = FALSE)
+
+```
+
+```{r pca_eig, fig.cap = "Inertie des axes de l'ACP"}
+fviz_eig(res_pca)
+
+```
+
+```{r pca12, fig.cap = "Diagramme des variables, axes 1 et 2"}
+fviz_pca_var(res_pca, axes = c(1, 2))
+```
+
+```{r pca13, fig.cap = "Diagramme des variables, axes 1 et 3"}
+fviz_pca_var(res_pca, axes = c(1, 3))
+
+```
+
+```{r pca_ind12, fig.cap = "Diagramme des individus, axes 1 et 2"}
+fviz_pca_ind(res_pca, axes = c(1, 2), repel = TRUE)
+```
+
+```{r pca_ind13, fig.cap = "Diagramme des individus, axes 1 et 3"}
+fviz_pca_ind(res_pca, axes = c(1, 3), repel = TRUE)
+
+```
